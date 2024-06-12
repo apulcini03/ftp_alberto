@@ -10,6 +10,7 @@
 
 void handle_client(int new_socket);
 
+
 int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
@@ -122,74 +123,66 @@ int main() {
 }
 
 void handle_client(int new_socket) {
+    
+    char *operation = NULL;
+    char *server_file_path = NULL;
+    char *state = "WAITING_OPERATION";
+
     char buffer[BUF_SIZE];
     char buffer_out[BUF_SIZE];
     int n;
 
     while ((n = recv(new_socket, buffer, BUF_SIZE - 1, 0)) > 0) {
         buffer[n] = '\0';
-        printf("Received: %s", buffer);
+        printf("Data received: %s current state: %s\n", buffer, state); 
+
+        //GESTISCO LO SCAMBIO DI MESSAGGI CON IL CLIENT
+        if (strncmp(state, "WAITING_OPERATION", 18) == 0)  {
+            if (strncmp(buffer, "WRITE", 6) == 0)  {
+                operation = "WRITE";
+                state = "WAITING_SERVER_FILE_NAME";
+            } else if (strncmp(buffer, "READ", 5) == 0) {
+                operation = "READ";
+                state = "WAITING_SERVER_FILE_NAME";
+            }
+        } else if (strncmp(state, "WAITING_SERVER_FILE_NAME", 25) == 0)  {
+            //prima di copiare una stringa (buffer[BUF_SIZE]) in un array di carattei dinamico, bisogna allocare la memoria per quest'ultimo
+            server_file_path = malloc(strlen(buffer) + 1);
+            strcpy(server_file_path, buffer);
+            if (strncmp(operation, "WRITE", 6) == 0)  {
+                state = "WAITING_DATA";
+            } else if (strncmp(operation, "READ", 5) == 0)  {
+                state = "SENDING_DATA";
+            }
+        } else if (strncmp(state, "WAITING_DATA", 13) == 0)  {
+            printf("Server writing %s data to file: %s\n", buffer, server_file_path);
+            //SIMULO LAVORO
+            sleep(10);
+            state = "COMPLETED";
+        }
+
+        printf("SERVER NEW state: %s operation %s server_file_path: %s\n", state, operation, server_file_path);   
+
+        //INVIA MESSAGGIO AL CLIENT SE MESSAGGIO DIVERSO DA SENDING DATA
+        if (strncmp(state, "SENDING_DATA", 13) != 0)  {
+            strcpy(buffer_out, state);
+            send(new_socket, buffer_out, strlen(buffer_out), 0);
+            printf("Server sent STATE: %s\n", buffer_out);
+            printf("\n");
+        }
+        //ALTRIMENT INVIA FILE
+        else {
+            printf("Server sending data from file: %s\n", server_file_path);
+            printf("\n");
+        }
+
     }
-
-    // Send welcome message
-    strcpy(buffer_out, "Benvenuto ");
-    strcat(buffer_out, buffer);
-    send(new_socket, buffer_out, strlen(buffer_out), 0);
-
-    //SIMULAZIONE ATTIVITA SERVER CON DATI RICEVUTI
-    printf("Processing message %s Will end in 30 seconds\n\n\n", buffer);
-    sleep(30);
-    printf("End processing for %s\n", buffer);
 
     if (n < 0) {
         perror("Receive failed");
     }
 }
 
-
-
-// void handle_client(int client_socket) {
-//     char buffer[BUF_SIZE];
-//     int n;
-
-//     // Send welcome message
-//     strcpy(buffer, "220 Welcome to FTP server\r\n");
-//     send(client_socket, buffer, strlen(buffer), 0);
-
-//     while ((n = recv(client_socket, buffer, BUF_SIZE - 1, 0)) > 0) {
-//         buffer[n] = '\0';
-//         printf("Received: %s", buffer);
-
-//         if (strncmp(buffer, "USER", 4) == 0) {
-//             strcpy(buffer, "331 Please specify the password.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-//         } else if (strncmp(buffer, "PASS", 4) == 0) {
-//             strcpy(buffer, "230 Login successful.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-//         } else if (strncmp(buffer, "LIST", 4) == 0) {
-//             strcpy(buffer, "150 Here comes the directory listing.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-
-//             // Simulate sending a directory listing
-//             strcpy(buffer, "drwxr-xr-x 2 user group 4096 Jun  8 12:34 directory\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-
-//             strcpy(buffer, "226 Directory send OK.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-//         } else if (strncmp(buffer, "QUIT", 4) == 0) {
-//             strcpy(buffer, "221 Goodbye.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-//             break;
-//         } else {
-//             strcpy(buffer, "502 Command not implemented.\r\n");
-//             send(client_socket, buffer, strlen(buffer), 0);
-//         }
-//     }
-
-//     if (n < 0) {
-//         perror("Receive failed");
-//     }
-// }
 
 
 // void handle_client(int new_socket) {
